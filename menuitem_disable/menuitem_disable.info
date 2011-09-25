@@ -1,0 +1,7 @@
+; $Id: cck_signup.info,v 1.5.4.3 2011/01/29 19:27:14 jhedstrom Exp $
+name = Menu Item Disable
+description = Allows a user to add an item to a menu but disable the link while creating the node.
+dependencies[] = menu
+core = 7.x
+package = "menu"
+version = 7000

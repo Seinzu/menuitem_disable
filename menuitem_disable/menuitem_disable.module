@@ -1,0 +1,112 @@
+<?php
+
+/**
+ * Alters any node-form to add an option to disable the menu link for the node.
+ * 
+ * Implementation of hook_form_alter.
+ * @param array $form
+ * @param array $form_state
+ * @param string $form_id The id of the current form
+ */
+function menuitem_disable_form_alter(&$form, $form_state, $form_id){  
+    $isNodeForm = menuitem_disable_find_node_form($form);
+    if ($isNodeForm === true){
+        if (isset($form['menu']) && is_array($form['menu'])){
+            if (isset($form['menu']['link']) && is_array($form['menu']['link'])){
+                $default = 0;
+                if (isset($form['nid']['#value'])){
+                    $nid = $form['nid']['#value'];
+                    $q = menuitem_disable_get_menu_details($nid);
+                    foreach ($q as $result){
+                        $default = ($result->hidden == 1) ? 1 : 0;
+                    }
+                }
+                $form['menu']['link']['disable_item'] = array(
+                    '#type'=>'checkbox',
+                    '#title'=>'Disable the menu link',
+                    '#default_value'=>$default
+                );
+                $form['#submit'][] = 'menuitem_disable_form_submit';
+            }
+        }
+    }
+}
+
+
+
+function menuitem_disable_get_menu_details($nid){
+    $q = db_query('SELECT
+                        mlid, hidden
+                    FROM
+                        {menu_links}
+                    WHERE
+                        link_path = :path', array('path'=>"node/{$nid}"));
+    // should just be one menu item
+    return $q;
+}
+
+function menuitem_disable_form_submit($form, $form_state){
+    $hidden = $form_state['values']['menu']['disable_item'];
+    $nid = $form_state['values']['nid'];
+    $q = menuitem_disable_get_menu_details($nid);
+    foreach ($q as $record){
+        if ($record->hidden == 1 && $hidden != 1){
+             // this record is hidden and shouldn't be
+             $_SESSION['hide'][$nid] = 0;
+        }
+        else if (($record->hidden == 0 || $record->hidden == -1)
+                 && $hidden == 1){
+            // not hidden but should be
+            $_SESSION['hide'][$nid] = 1;
+        }
+        echo $result;
+    }
+}
+
+/**
+ * Discovers if the form provided is a node-form (i.e. if it creates a node).
+ *
+ * @param array $form The array containing the specification of the form
+ * @return boolean True if the class is present, false if not.
+ */
+function menuitem_disable_find_node_form($form){
+    if (isset($form['#attributes']) && isset($form['#attributes']['class'])){
+        if (is_array($form['#attributes']['class'])){
+            foreach ($form['#attributes']['class'] as $item){
+                if ($item == 'node-form'){
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+/**
+ * Implementation of hook_node_insert
+ */
+function menuitem_disable_node_insert($node){
+    if (isset($_SESSION['hide'][$node->nid])){
+        $menu_link = menuitem_disable_get_menu_details($node->nid);
+        foreach ($menu_link as $link){
+            $result = db_update("menu_links")
+                ->fields(array('hidden'=>$_SESSION['hide'][$node->nid]))
+                ->condition('mlid', $link->mlid, '=')
+                ->execute();
+        }
+        unset($_SESSION['hide'][$node->nid]);
+    }
+}
+
+function menuitem_disable_node_update($node){
+    if (isset($_SESSION['hide'][$node->nid])){
+        $menu_link = menuitem_disable_get_menu_details($node->nid);
+        foreach ($menu_link as $link){
+            $result = db_update("menu_links")
+                ->fields(array('hidden'=>$_SESSION['hide'][$node->nid]))
+                ->condition('mlid', $link->mlid, '=')
+                ->execute();
+        }
+        unset($_SESSION['hide'][$node->nid]);
+    }
+}
