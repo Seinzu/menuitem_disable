@@ -56,7 +56,14 @@ function menuitem_disable_get_menu_details($nid){
 function menuitem_disable_form_submit($form, $form_state){
     $hidden = $form_state['values']['menu']['disable_item'];
     $nid = $form_state['values']['nid'];
-    $q = menuitem_disable_get_menu_details($nid);
+    if (!empty($nid)){
+        $q = menuitem_disable_get_menu_details($nid);
+    }
+    else {
+        $body = menuitem_disable_getcckvalue($form_state['values']['body']);
+        $hash = md5($body . $form_state['values']['type']);
+        $_SESSION['hide'][$hash] = $hidden ? 1 : 0;
+    }
     foreach ($q as $record){
         if ($record->hidden == 1 && $hidden != 1){
              // this record is hidden and shouldn't be
@@ -90,20 +97,34 @@ function menuitem_disable_find_node_form($form){
 }
 
 /**
+ * Returns the value stored in a cck field.
+ * @param array $field The array representing the field
+ * @return string The value within $field.
+ */
+function menuitem_disable_getcckvalue($field){
+    $field_level1 = array_shift($field);
+    $field_level2 = $field[0];
+    $value = $field_level2['value'];
+    return $value;
+}
+
+/**
  * When a node is inserted, performs any outstanding hiding or revealing that must be done.
  * Implementation of hook_node_insert
  * @param stdClass $node The node that was inserted
  */
 function menuitem_disable_node_insert($node){
-    if (isset($_SESSION['hide'][$node->nid])){
+    $body = menuitem_disable_getcckvalue($node->body);
+    $hash = md5($body . $node->type);
+    if (isset($_SESSION['hide'][$hash])){
         $menu_link = menuitem_disable_get_menu_details($node->nid);
         foreach ($menu_link as $link){
             $result = db_update("menu_links")
-                ->fields(array('hidden'=>$_SESSION['hide'][$node->nid]))
+                ->fields(array('hidden'=>$_SESSION['hide'][$hash]))
                 ->condition('mlid', $link->mlid, '=')
                 ->execute();
         }
-        unset($_SESSION['hide'][$node->nid]);
+        unset($_SESSION['hide'][$hash]);
     }
 }
 
