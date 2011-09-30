@@ -125,6 +125,8 @@ function menuitem_disable_node_insert($node){
                 ->execute();
         }
         unset($_SESSION['hide'][$hash]);
+	// Rebuild the menu cache
+	cache_clear_all('*', 'cache_menu', TRUE);
     }
 }
 
@@ -143,5 +145,7 @@ function menuitem_disable_node_update($node){
                 ->execute();
         }
         unset($_SESSION['hide'][$node->nid]);
+	// Rebuild the menu cache
+	cache_clear_all('*', 'cache_menu', TRUE);
     }
 }
